@@ -1,0 +1,396 @@
+---
+title: "Homework Assignment 3"
+# subtitle: "possible subtitle goes here"
+author:
+  - Wei Shi
+# date: "`r format(Sys.time(), '%d %B %Y')`"
+documentclass: article
+papersize: letter
+fontsize: 11pt
+# bibliography: template.bib
+# biblio-style: datalab
+
+output:
+  bookdown::pdf_document2
+  bookdown::html_document2
+---
+
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+## some utility functions, see the source code for details
+source("utils_template.R")
+
+## specify the packages needed
+pkgs <- c("splines2", "DT", "webshot", "leaflet")
+need.packages(pkgs)
+
+## external data can be read in by regular functions,
+## such as read.table or load
+
+## get output format in case something needs extra effort
+outFormat <- knitr::opts_knit$get("rmarkdown.pandoc.to")
+## "latex" or "html"
+
+## for latex and html output
+isHtml <- identical(outFormat, "html")
+isLatex <- identical(outFormat, "latex")
+latex <- ifelse(isLatex, '\\LaTeX\\', 'LaTeX')
+
+## specify global chunk options
+knitr::opts_chunk$set(fig.width = 5, fig.height = 4, dpi = 300,
+                      out.width = "90%", fig.align = "center")
+
+options(digits = 4)
+
+```
+
+
+# Problem 1
+
+## E-Step: Compute the conditional expectation of $l_n^c (\boldsymbol{\Psi})$
+
+Since $(\boldsymbol{x}_i, z_i, y_i)$ are independent, we have
+
+\begin{align}
+Q(\boldsymbol{\Psi} | \boldsymbol{\Psi}^{(k)}) & = E_{z}\{l_n^c (\boldsymbol{\Psi})\} 
+ = \sum_{\boldsymbol{z}} l_n^c (\boldsymbol{\Psi}) p(\boldsymbol{z}| \boldsymbol{x}, \boldsymbol{y}, \boldsymbol{\Psi}^{(k)})\\
+& = \sum_{\boldsymbol{z}} \sum_{i=1}^n \sum_{j=1}^m z_{ij} \log \{ \pi_j \phi(y_i - \boldsymbol{x}_i^T \beta_j ; 0, \sigma^2)\}p(\boldsymbol{z}| \boldsymbol{x}, \boldsymbol{y}, \boldsymbol{\Psi}^{(k)})\\
+& = \sum_{i=1}^n \sum_{j=1}^m \left\{\sum_{\boldsymbol{z}} z_{ij} p(\boldsymbol{z}| \boldsymbol{x}, \boldsymbol{y}, \boldsymbol{\Psi}^{(k)})\right\} \log \{ \pi_j \phi(y_i - \boldsymbol{x}_i^T \beta_j ; 0, \sigma^2)\} \\
+& = \sum_{i=1}^n \sum_{j=1}^m \left\{\sum_{z_{ij} \in \{0,1\}} z_{ij} p(z_{ij}| \boldsymbol{x}_i, y_i, \boldsymbol{\Psi}^{(k)})\right\} \log \{ \pi_j \phi(y_i - \boldsymbol{x}_i^T \beta_j ; 0, \sigma^2)\} \\
+& = \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)}  \{ \log\pi_j + \log \phi(y_i - \boldsymbol{x}_i^T \beta_j ; 0, \sigma^2)\}, \\
+
+\end{align}
+
+where 
+\begin{align}
+p_{ij}^{(k+1)} & =\sum_{z_{ij} \in \{0,1\}} z_{ij} p(z_{ij}| \boldsymbol{x}_i, y_i, \boldsymbol{\Psi}^{(k)}) 
+= E(z_{ij}| \boldsymbol{x}_i, y_i, \boldsymbol{\Psi}^{(k)}) \\
+& = p(z_{ij}= 1 | \boldsymbol{x}_i, y_i, \boldsymbol{\Psi}^{(k)}) \\
+& = \frac{p(z_{ij}= 1, y_i | \boldsymbol{x}_i, \boldsymbol{\Psi}^{(k)})}{p( y_i | \boldsymbol{x}_i, \boldsymbol{\Psi}^{(k)})}\\
+& = \frac{\pi_j^{(k)} \phi(y_i - \boldsymbol{x}_i^T \beta_j^{(k)} ; 0, \sigma^{2^{(k)}})}{\sum_{j=1}^m \pi_j^{(k)} \phi(y_i - \boldsymbol{x}_i^T \beta_j^{(k)} ; 0, \sigma^{2^{(k)}})}\\
+\end{align}
+
+## M-Step: Maximize $Q(\boldsymbol{\Psi} | \boldsymbol{\Psi}^{(k)})$ to obtain $\boldsymbol{\pi}^{(k+1)}, \boldsymbol{\beta}^{(k+1)}, \sigma^{2^{(k+1)}}$
+
+Since 
+\begin{align}
+\phi(y_i - \boldsymbol{x}_i^T \beta_j ; 0, \sigma^2) = \frac{1}{\sqrt{2\pi \sigma^2}}\exp\{-\frac{(y_i - \boldsymbol{x}_i^T \beta_j)^2}{2\sigma^2}\},
+\end{align}
+then
+\begin{align}
+Q(\boldsymbol{\Psi} | \boldsymbol{\Psi}^{(k)}) & = \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)}  \left\{ \log\pi_j -\frac{1}{2}\log (2\pi) -  \frac{1}{2} \log(\sigma^2) -\frac{(y_i - \boldsymbol{x}_i^T \beta_j)^2}{2\sigma^2}\right\} \\
+& = -\frac{1}{2} \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)}\log (2\pi) + \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)} \log \pi_j - \frac{1}{2} \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)} \log(\sigma^2) - \frac{1}{2} \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)} \frac{(y_i - \boldsymbol{x}_i^T \beta_j)^2}{\sigma^2} \\ 
+& = -\frac{1}{2} \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)}\log (2\pi) + I_1 - \frac{1}{2}I_2 -\frac{1}{2}I_3,\\  
+\end{align}
+where 
+\begin{align}
+I_1 = \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)} \log \pi_j, I_2 = \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)} \log(\sigma^2), I_3 = \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)} \frac{(y_i - \boldsymbol{x}_i^T \beta_j)^2}{\sigma^2}
+\end{align}
+
+First, only $I_3$ contains $\beta_j$. To minimize it, observe that $I_3$ is the sum of $m$ terms, 
+each involving a single $\beta_j$
+\begin{align}
+I_{3j}= \sum_{i=1}^n p_{ij}^{(k+1)} \frac{(y_{ij}-\boldsymbol{x}_i^T \beta_j)^2}{\sigma^2}
+\end{align}
+
+We only need to find $\beta_j$ to minimize each $I_{3j}$. Since each $I_{3j}$ is a weighted sum of squared 
+residuals, we know that $\beta_j^{(k+1)}$ must be the weighted least squares estimator. So
+\begin{align}
+\beta_j^{(k+1)} = (\boldsymbol{X}^T \boldsymbol{W} \boldsymbol{X})^{-1} \boldsymbol{X}^T \boldsymbol{W} \boldsymbol{y},
+\end{align}
+where $\boldsymbol{W} = \text{diag}\{p_{1j}^{(k+1)}, \ldots, p_{nj}^{(k+1)}\}$. Plug in $\boldsymbol{X}=(\boldsymbol{x}_1, \ldots, \boldsymbol{x}_n)^T, \boldsymbol{y} = (y_1, \ldots, y_n)^T$, 
+we can get that 
+\begin{align}
+\beta_j^{(k+1)} = \left(\sum_{i=1}^n \boldsymbol{x}_i \boldsymbol{x}_i^T p_{ij}^{(k+1)}\right)^{-1} 
+\left(\sum_{i=1}^n \boldsymbol{x}_i  p_{ij}^{(k+1)} y_i\right)
+\end{align}
+
+Next, only $I_2$ and $I_3$ contain $\sigma^2$. Denote the sum of $I_2$ and $I_3$ as $S$, we have that 
+\begin{align}
+S = \log(\sigma^2) \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)}  + \frac{1}{\sigma^2}\sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)} (y_i - \boldsymbol{x}_i^T \beta_j)^2
+\end{align}
+Take derivative with respect to $\sigma^2$ and set to zero, we get that 
+\begin{align}
+&\frac{1}{\sigma^2} \sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)}  - \frac{1}{(\sigma^2)^2}\sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)} (y_i - \boldsymbol{x}_i^T \beta_j)^2 = 0 \\
+\Rightarrow \, & \sigma^2 = \frac{\sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)} (y_i - \boldsymbol{x}_i^T \beta_j)^2}{\sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)}}
+\end{align}
+Since for each $i$, $\sum_{j=1}^m p_{ij}^{(k+1)} = 1$, we have $\sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)} = n$. Therefore,
+\begin{align}
+{\sigma^2}^{(k+1)} = \frac{\sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)} (y_i - \boldsymbol{x}_i^T \beta_j^{(k+1)})^2}{n}
+\end{align}
+
+Finally, only $I_1$ contains $\pi_j$. To maximize $I_1 = \sum_{j=1}^m \left(\sum_{i=1}^n p_{ij}^{(k+1)}\right) \log \pi_j$, note that $\pi_1, \ldots, \pi_m$ must satisfy $\pi_1 + \ldots + \pi_m =1$. Therefore, 
+the maximazation can be obtained by finding a solution for 
+\begin{align}
+\frac{\partial \mathcal{L}(\pi_1, \ldots, \pi_m)}{\partial \pi_j} = 0,
+\end{align}
+
+where
+\begin{align}
+\mathcal{L}(\pi_1, \ldots, \pi_m) = \sum_{j=1}^m \left(\sum_{i=1}^n p_{ij}^{(k+1)}\right) \log \pi_j - \lambda \left\{\sum_{j=1}^m  \pi_j - 1\right\}
+\end{align}
+
+with $\lambda$ a Lagrange multiplier. Then
+\begin{align}
+\pi_j^{(k+1)} = \frac{\sum_{i=1}^n p_{ij}^{(k+1)}}{\sum_{i=1}^n \sum_{j=1}^m p_{ij}^{(k+1)}} =  \frac{\sum_{i=1}^n p_{ij}^{(k+1)}}{n}
+\end{align}
+
+# Problem 2
+
+## (a)
+\begin{align}
+& C \int_0^{\infty} (2x^{\theta-1}+ x^{\theta-1/2})e^{-x}dx = 1 \\
+\Rightarrow \, & 2C\Gamma(\theta) \int_0^{\infty}\frac{1}{\Gamma(\theta)}x^{\theta-1} e^{-x}dx + C \Gamma(\theta+\frac{1}{2}) \int_0^{\infty}\frac{1}{\Gamma(\theta +\frac{1}{2})}x^{(\theta+1/2)-1} e^{-x}dx =1 \\
+\Rightarrow \, & 2C\Gamma(\theta) + C \Gamma(\theta+\frac{1}{2}) = 1 \\
+\Rightarrow \, & C = \frac{1}{2\Gamma(\theta) + \Gamma(\theta+\frac{1}{2})}
+\end{align}
+
+From above, we can see that 
+\begin{align}
+g(x) & = C (2x^{\theta-1}+ x^{\theta-1/2})e^{-x} \\
+& = \frac{2\Gamma(\theta)}{2\Gamma(\theta) + \Gamma(\theta+\frac{1}{2})} \left\{\frac{1}{\Gamma(\theta)}x^{\theta-1} e^{-x}\right\} +  \frac{\Gamma(\theta+\frac{1}{2})}{2\Gamma(\theta) + \Gamma(\theta+\frac{1}{2})} \left\{\frac{1}{\Gamma(\theta +\frac{1}{2})}x^{(\theta+1/2)-1} e^{-x}\right\},
+\end{align}
+
+where $\frac{1}{\Gamma(\theta)}x^{\theta-1} e^{-x}$ is the p.d.f. of Gamma$(\theta,1)$ and $\frac{1}{\Gamma(\theta +\frac{1}{2})}x^{(\theta+1/2)-1} e^{-x}$ is the p.d.f. of Gamma$(\theta+\frac{1}{2},1)$. Therefore, $g$ is a mixture of Gamma distributions. The first component 
+distribution is Gamma$(\theta,1)$ with weight $\frac{2\Gamma(\theta)}{2\Gamma(\theta) + \Gamma(\theta+\frac{1}{2})}$, and the second component distribution is Gamma$(\theta+\frac{1}{2},1)$ with 
+weight $\frac{\Gamma(\theta+\frac{1}{2})}{2\Gamma(\theta) + \Gamma(\theta+\frac{1}{2})}$.
+
+## (b)
+Procedure to sample from $g$:
+
+Step 1: Sample $U \sim$ Unif$(0,1)$
+
+Step 2: If $U \leq \frac{2\Gamma(\theta)}{2\Gamma(\theta) + \Gamma(\theta+\frac{1}{2})}$, then sample 
+$X \sim$ Gamma$(\theta,1)$; else sample $X \sim$ Gamma$(\theta + \frac{1}{2},1)$
+
+
+```{r warning = FALSE, message = FALSE}
+GSample <- function(n, theta){
+  w <- 2 * gamma(theta) / (2 * gamma(theta) + gamma(theta + 0.5)) #weight of first component
+  u <- runif(n)
+  x <- rgamma(n, ifelse(u <= w, theta, theta + 0.5))
+  return(x)
+}
+
+GFunc <- function(theta, x){
+  w <- 2 * gamma(theta) / (2 * gamma(theta) + gamma(theta + 0.5)) #weight of first component
+  w * dgamma(x, shape = theta) + (1 - w) * dgamma(x, shape = theta +0.5)
+}
+
+set.seed(6218)
+n <- 10000
+
+MyPlot <- function(SampleFunc, n, param, TrueFunc){
+  #param should be in the form of c(paramname = value)
+  sample <- SampleFunc(n, param)
+  dname <- substr(tolower(substitute(SampleFunc)), 1, 1)
+  plot(density(sample, from = 0, to = max(sample)), xlab = paste(names(param), "=", param, collapse = ", "), 
+     main = paste("Kernel Density Estimation vs True Density of", dname))
+  curve(sapply(x, function(x) TrueFunc(param, x)), from = 0, to = max(sample), 
+        col = "red", add = TRUE)
+  legend("topright",c("Kernel density est","True density"), col = c("black", "red"), lty = 1)
+}
+
+MyPlot(GSample, n, c(theta = 1), GFunc)
+
+MyPlot(GSample, n, c(theta = 5), GFunc)
+```
+
+We drew a sample of size $n = 10,000$ when $\theta = 1$ and $\theta = 5$. From the above two 
+plots, we can see that in both case, the kernel density estimation of $g$ is quite closed to the 
+true density.
+
+## (c)
+Denote $q(x) = \sqrt{4+x}x^{\theta-1}e^{-x}$ and $h(x) = (2x^{\theta-1} + x^{\theta-1/2}) e^{-x}$. 
+From (a) we know that $g(x) = C h(x)$. We want to find $\beta$ such that $\frac{q(x)}{h(x)} \leq \beta$ 
+for all $x \in (0, \infty)$. Notice that 
+\begin{align}
+\frac{q(x)}{h(x)} = \frac{\sqrt{4+x}x^{\theta-1}}{2x^{\theta-1} + x^{\theta-1/2}}
+ = \frac{\sqrt{4+x}}{2 +x^{1/2}} = \sqrt{\frac{4+x}{4+x+2x^{1/2}}} \leq 1 \text{ for all } x \in (0,\infty)
+\end{align}
+
+So that $\beta = 1$. Therefore, we can design the procedure to sample from $f$ as follows:
+
+Step 1: Sample $X \sim g$ and $U \sim$ Unif$(0,1)$
+
+Step 2: If $U > \frac{q(X)}{\beta h(X)} = \frac{\sqrt{4+X}}{2 +X^{1/2}}$, then go to Step 1; else return $X$
+
+```{r warning = FALSE, message = FALSE}
+
+FSample <- function(n, theta){
+  sample <- vector(length = n)
+  i <- 1
+  while(i <= n){
+    x <- GSample(1, theta)
+    u <- runif(1)
+    r <- sqrt(4 + x) / (2 + x^0.5)
+    if (u <= r){
+      sample[i] <- x
+      i <- i + 1
+    }
+  }
+  return(sample)
+}
+
+FFunc <- function(theta, x){
+  q <- function(x) {sqrt(4 + x) * x^{theta - 1} * exp(-x)}
+  return (q(x) / integrate(q, 0, Inf)$value)
+}
+
+MyPlot(FSample, n, c(theta = 1), FFunc)
+
+MyPlot(FSample, n, c(theta = 5), FFunc)
+```
+
+We still drew a sample of size $n = 10,000$ when $\theta = 1$ and $\theta = 5$. From the above two 
+plots, we can see that in both case, the estimated density of $f$ is quite closed to the 
+true density.
+
+# Problem 3
+
+## (a)
+Specify $g(x) \propto x^{\theta -1} + \sqrt{3} (1 - x)^{\beta - 1}$. We can use the same method in Problem 2 (a) to find the component distributions and their weights.
+\begin{align}
+& C \int_0^1 x^{\theta -1} + \sqrt{3} (1 - x)^{\beta - 1} dx = 1 \\
+\Rightarrow \, & C B(\theta, 1)  +   \sqrt{3} C B(1, \beta) = 1 \\
+\Rightarrow \, & C = \frac{1}{B(\theta, 1) + \sqrt{3} B(1, \beta)} \\
+\end{align}
+So that
+\begin{align}
+g(x) & = C x^{\theta -1} + \sqrt{3} (1 - x)^{\beta - 1}\\
+& = \frac{B(\theta, 1)}{B(\theta, 1) + \sqrt{3} B(1, \beta)} \frac{x^{\theta -1}}{B(\theta, 1)} +
+\frac{\sqrt{3} B(1, \beta)}{B(\theta, 1) + \sqrt{3} B(1, \beta)} \frac{(1 - x)^{\beta - 1}}{B(1, \beta)}
+\end{align}
+
+where $\frac{x^{\theta -1}}{B(\theta, 1)}$ is the p.d.f. of Beta$(\theta,1)$ and $\frac{(1 - x)^{\beta - 1}}{B(1, \beta)}$ is the p.d.f. of Beta$(1,\beta)$. Therefore, $g$ is a mixture of Beta distributions. The first component distribution is Beta$(\theta,1)$ with weight $\frac{B(\theta, 1)}{B(\theta, 1) + \sqrt{3} B(1, \beta)}$, and the second component distribution is Beta$(1, \beta)$ with 
+weight $\frac{\sqrt{3} B(1, \beta)}{B(\theta, 1) + \sqrt{3} B(1, \beta)}$.
+
+We first lay out the procedure to sample from $g$:
+
+Step 1: Sample $U \sim$ Unif$(0,1)$
+
+Step 2: If $U \leq \frac{B(\theta, 1)}{B(\theta, 1) + \sqrt{3} B(1, \beta)}$, then sample 
+$X \sim$ Beta$(\theta,1)$; else sample $X \sim$ Beta$(1, \beta)$
+
+Denote $q(x) = \frac{x^{\theta -1}}{1+x^2} + \sqrt{2+x^2} (1 -x)^{\beta-1}$ and 
+$h(x) = x^{\theta -1} + \sqrt{3} (1 - x)^{\beta - 1}$. 
+We want to find $\beta$ such that $\frac{q(x)}{h(x)} \leq \beta$ 
+for all $x \in (0, 1)$. Since $\frac{q(x)}{h(x)} \leq 1$, $\beta = 1$. 
+Therefore, we can design the procedure to sample from $f$ as follows:
+
+Step 1: Sample $X \sim g$ and $U \sim$ Unif$(0,1)$
+
+Step 2: If $U > \frac{q(X)}{h(X)}$, then go to Step 1; else return $X$
+
+```{r warning = FALSE, message = FALSE}
+GSample2 <- function(n, param){ 
+  #param should be in the form of c(theta, beta)
+  w <- beta(param[1], 1) / (beta(param[1], 1) + sqrt(3) * beta(1, param[2])) #weight of first component
+  u <- runif(n)
+  x <- rbeta(n, ifelse(u <= w, param[1], 1), ifelse(u <= w, 1, param[2]))
+  return(x)
+}
+
+GFunc2 <- function(param, x){
+  w <- beta(param[1], 1) / (beta(param[1], 1) + sqrt(3) * beta(1, param[2])) #weight of first component
+  w * dbeta(x, param[1], 1) + (1 - w) * dbeta(x, 1, param[2])
+}
+
+QFunc <- function(param, x){
+  #param should be in the form of c(theta, beta)
+  x^{param[1] - 1} / (1 + x^2) + sqrt(2 + x^2) * (1 - x)^{param[2] - 1} 
+}
+
+HFunc <- function(param, x){
+  #param should be in the form of c(theta, beta)
+  x^{param[1] - 1} + sqrt(3) * (1 - x)^{param[2] - 1}
+}
+
+FSample2 <- function(n, param){
+  #param should be in the form of c(theta, beta)
+  sample <- vector(length = n)
+  i <- 1
+  while(i <= n){
+    x <- GSample2(1, param)
+    u <- runif(1)
+    r <- QFunc(param, x) / HFunc(param, x)
+    if (u <= r){
+      sample[i] <- x
+      i <- i + 1
+    }
+  }
+  return(sample)
+}
+
+FFunc2 <- function(param, x){
+  #param should be in the form of c(theta, beta)
+  q <- function(x) {QFunc(param, x)}
+  return (q(x) / integrate(q, 0, 1)$value)
+}
+
+MyPlot(FSample2, n, c(theta = 0.5, beta = 0.5), FFunc2)
+
+MyPlot(FSample2, n, c(theta = 5, beta = 3), FFunc2)
+
+```
+
+We drew a sample of size $n = 10,000$ when $\theta = 0.5, \beta = 0.5$ and $\theta = 5, \beta = 3$. 
+From the above two plots, we can see that in both case, the estimated density of $f$ is quite closed to the 
+true density in the middle part.
+
+## (b)
+
+Denote $q_1(x) = \frac{x^{\theta - 1}}{1+x^2}, q_2(x) = \sqrt{2 + x^2} (1-x)^{\beta - 1}$. 
+When dealing with two components separately, we can simply use $g_1(x) = \frac{x^{\theta - 1}}{B(\theta, 1)}$, which is Beta$(\theta, 1)$; and $g_2(x) = \frac{(1-x)^{\beta - 1}}{B(1, \beta)}$, which is Beta$(1, \beta)$.
+So that
+\begin{align}
+\alpha_1 & = \sup \frac{q_1(x)}{g_1(x)}= \sup \frac{B(\theta, 1)}{1 + x^2} = B(\theta, 1)\\
+\alpha_2 & = \sup \frac{q_2(x)}{g_2(x)}= \sup \sqrt{2 + x^2} B(1, \beta)  = \sqrt{3} B(1, \beta)
+\end{align}
+
+Therefore, design the procedure to sample from $f$ in this way as follows:
+
+Step 1: Sample $K \sim$ Unif$(0,1)$ and $U \sim$ Unif$(0,1)$ independently
+
+Step 2: If $K \leq  \frac{\alpha_1}{\alpha_1 + \alpha_2}= \frac{B(\theta, 1)}{B(\theta, 1) + \sqrt{3} B(1, \beta)}$, then 
+
+sample $X \sim g_1$, i.e., Beta$(\theta, 1)$, and calculate $r = \frac{q_1(X)}{\alpha_1 g_1(X)} = \frac{1}{1 + x^2}$;
+
+else sample $X \sim g_2$, i.e., Beta$(1, \beta)$, and calculate $r = \frac{q_2(X)}{\alpha_2 g_2(X)} = \sqrt{\frac{2 + x^2}{3}}$
+  
+Step 3: If $U > r$, then go to Step 1; else return $X$
+
+```{r warning = FALSE, message = FALSE}
+FSample3 <- function(n, param){
+  #param should be in the form of c(theta, beta)
+  sample <- vector(length = n)
+  i <- 1
+  w <- beta(param[1], 1) / (beta(param[1], 1) + sqrt(3) * beta(1, param[2]))
+  while(i <= n){
+    k <- runif(1)
+    u <- runif(1)
+    if (k <= w){
+      x <- rbeta(1, param[1], 1)
+      r <- 1/ (1 + x^2)
+    }else{
+      x <- rbeta(1, 1, param[2])
+      r <- sqrt((2 + x^2) / 3)
+    }
+    if (u <= r){
+      sample[i] <- x
+      i <- i + 1
+    }
+  }
+  return(sample)
+}
+
+MyPlot(FSample3, n, c(theta = 0.5, beta = 0.5), FFunc2)
+
+MyPlot(FSample3, n, c(theta = 5, beta = 3), FFunc2)
+
+```
+
+
+
+
+
